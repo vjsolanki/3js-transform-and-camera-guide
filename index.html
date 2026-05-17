@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Three.js Transform & Camera Explorer</title>
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --panel: #12121c;
+      --panel-2: #181826;
+      --border: #232336;
+      --text: #e6e6f0;
+      --text-dim: #8a8a9e;
+      --text-faint: #5a5a70;
+      --accent: #9eafff;
+      --red: #f04d63;
+      --green: #4dd17a;
+      --blue: #5b8aff;
+      --yellow: #ffd34d;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      font-size: 13px;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 1fr 1fr 360px;
+      height: 100vh;
+      gap: 1px;
+      background: var(--border);
+    }
+    .view {
+      position: relative;
+      background: var(--bg);
+      overflow: hidden;
+      min-width: 0;
+      min-height: 0;
+    }
+    .view canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .view-label {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 6px 12px;
+      background: rgba(10, 10, 18, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 11px;
+      letter-spacing: 1.4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    .view-hint {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      padding: 8px 12px;
+      background: rgba(10, 10, 18, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 11px;
+      color: var(--text-dim);
+      z-index: 10;
+      backdrop-filter: blur(8px);
+      line-height: 1.5;
+    }
+    .sidebar {
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .legend {
+      padding: 14px 16px;
+      background: var(--panel-2);
+      border-bottom: 1px solid var(--border);
+      font-size: 11.5px;
+      line-height: 1.55;
+    }
+    .legend h3 {
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .legend-item {
+      display: grid;
+      grid-template-columns: 14px 1fr;
+      gap: 8px;
+      align-items: start;
+      margin: 4px 0;
+    }
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      margin-top: 3px;
+    }
+    .legend-item b { color: var(--text); }
+    .legend-item span { color: var(--text-dim); }
+    .controls {
+      padding: 14px 16px 24px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+    .controls::-webkit-scrollbar { width: 8px; }
+    .controls::-webkit-scrollbar-track { background: var(--panel); }
+    .controls::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    h2 {
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin: 14px 0 4px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+    }
+    h2:first-of-type { margin-top: 0; }
+    .section-note {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      margin: 4px 0 8px;
+    }
+    .section-note code {
+      background: var(--panel-2);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 10.5px;
+      color: var(--accent);
+    }
+    .ctrl {
+      display: grid;
+      grid-template-columns: 16px 1fr 46px;
+      gap: 8px;
+      align-items: center;
+      margin: 5px 0;
+      font-size: 11px;
+    }
+    .ctrl .name {
+      font-family: "SF Mono", Menlo, monospace;
+      font-weight: 700;
+    }
+    .ctrl .val {
+      color: var(--accent);
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 11px;
+      text-align: right;
+    }
+    .axis-x { color: var(--red); }
+    .axis-y { color: var(--green); }
+    .axis-z { color: var(--blue); }
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      -webkit-appearance: none;
+      appearance: none;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: grab;
+    }
+    input[type="range"]::-webkit-slider-thumb:active { cursor: grabbing; }
+    input[type="range"]::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: grab;
+      border: none;
+    }
+    .presets {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      margin: 6px 0 0;
+    }
+    button {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 10.5px;
+      font-family: inherit;
+      letter-spacing: 0.3px;
+      text-align: left;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: var(--border);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.reset { text-align: center; width: 100%; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div id="error-box" style="display:none;position:fixed;top:10px;left:10px;right:380px;z-index:1000;background:#3a1020;border:1px solid #f04d63;color:#ffcdd5;padding:12px 16px;border-radius:6px;font-family:'SF Mono',Menlo,monospace;font-size:12px;white-space:pre-wrap;line-height:1.5;max-height:80vh;overflow:auto"></div>
+
+  <div class="app">
+    <div class="view" id="main-view">
+      <div class="view-label">1 · Camera View</div>
+      <div class="view-hint">
+        This is what the <b>PerspectiveCamera</b> renders — the actual pixels Three.js draws.
+      </div>
+    </div>
+
+    <div class="view" id="scene-view">
+      <div class="view-label">2 · Scene View — drag to orbit</div>
+      <div class="view-hint">
+        You floating outside the scene. The little camera icon + yellow pyramid is the same camera that's drawing view #1. Drag to look around.
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="legend">
+        <h3>Legend — what you're looking at</h3>
+        <div class="legend-item"><span class="swatch" style="background:#5b8aff"></span><span><b>The cube</b> is your Object3D. It has a transform: position, rotation, scale. Faces are color-coded so you can see rotation.</span></div>
+        <div class="legend-item"><span class="swatch" style="background:#f04d63"></span><span><b>Red line</b> is the world <b>X</b> axis (right).</span></div>
+        <div class="legend-item"><span class="swatch" style="background:#4dd17a"></span><span><b>Green line</b> is the world <b>Y</b> axis (up).</span></div>
+        <div class="legend-item"><span class="swatch" style="background:#5b8aff"></span><span><b>Blue line</b> is the world <b>Z</b> axis (toward you).</span></div>
+        <div class="legend-item"><span class="swatch" style="background:#ffd34d"></span><span><b>Yellow pyramid</b> (view #2 only) = camera frustum. Anything inside this pyramid ends up in view #1.</span></div>
+        <div class="legend-item"><span class="swatch" style="background:#ffd34d;opacity:0.5"></span><span><b>Yellow dashed line</b> = sight line from camera to its lookAt target. The yellow dot is the target.</span></div>
+      </div>
+
+      <div class="controls">
+        <h2>Presets</h2>
+        <div class="presets" id="presets"></div>
+        <button class="reset" id="reset-btn">Reset everything</button>
+
+        <h2>Cube · position</h2>
+        <div class="section-note">Where the cube lives. Origin <code>(0,0,0)</code> is where the colored axes meet.</div>
+        <div id="ctrls-pos"></div>
+
+        <h2>Cube · rotation (radians)</h2>
+        <div class="section-note">Tilt. <code>π</code>=half turn, <code>2π</code>=full turn.</div>
+        <div id="ctrls-rot"></div>
+
+        <h2>Cube · scale</h2>
+        <div class="section-note"><code>1</code>=normal. Non-uniform = squashed.</div>
+        <div id="ctrls-scale"></div>
+
+        <h2>Camera · position</h2>
+        <div class="section-note">Where the camera stands. Watch the yellow pyramid move in view #2.</div>
+        <div id="ctrls-cam"></div>
+
+        <h2>Camera · FOV (degrees)</h2>
+        <div class="section-note">Lens angle. Low=telephoto/zoomed in. High=fisheye/wide.</div>
+        <div id="ctrls-fov"></div>
+
+        <h2>Camera · lookAt target</h2>
+        <div class="section-note">Where the camera aims (the yellow dot in view #2).</div>
+        <div id="ctrls-lookat"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const errBox = document.getElementById('error-box');
+    function showErr(label, e) {
+      const msg = e && e.message ? e.message : String(e);
+      if (msg.includes('ResizeObserver loop')) return;
+      errBox.style.display = 'block';
+      errBox.textContent += `[${label}] ${msg}\n${e && e.stack ? e.stack : ''}\n\n`;
+    }
+    window.addEventListener('error', (ev) => showErr('error', ev.error || ev.message));
+    window.addEventListener('unhandledrejection', (ev) => showErr('promise', ev.reason));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    let THREE, OrbitControls;
+    try {
+      THREE = await import('three');
+      ({ OrbitControls } = await import('three/addons/controls/OrbitControls.js'));
+      console.log('three.js loaded, revision', THREE.REVISION);
+    } catch (e) { showErr('module load', e); throw e; }
+
+    try {
+
+    // ----- state -----
+    const defaults = {
+      pos:    { x: 0, y: 0, z: 0 },
+      rot:    { x: 0, y: 0, z: 0 },
+      scale:  { x: 1, y: 1, z: 1 },
+      cam:    { x: 4, y: 3, z: 5 },
+      fov:    75,
+      lookAt: { x: 0, y: 0, z: 0 },
+    };
+    const state = structuredClone(defaults);
+
+    const get = (p) => p.split('.').reduce((o, k) => o[k], state);
+    const set = (p, v) => {
+      const parts = p.split('.');
+      const last = parts.pop();
+      parts.reduce((o, k) => o[k], state)[last] = v;
+    };
+
+    // ----- build sliders -----
+    const valueEls = {}, inputEls = {};
+    function makeSlider(parent, path, min, max, step, axis) {
+      const div = document.createElement('div');
+      div.className = 'ctrl';
+      const name = path.split('.').pop();
+      const cls = axis ? `axis-${axis}` : '';
+      div.innerHTML = `
+        <span class="name ${cls}">${name}</span>
+        <input type="range" min="${min}" max="${max}" step="${step}" value="${get(path)}">
+        <span class="val">${get(path).toFixed(2)}</span>
+      `;
+      parent.appendChild(div);
+      const input = div.querySelector('input');
+      const val = div.querySelector('.val');
+      input.addEventListener('input', () => {
+        const v = parseFloat(input.value);
+        set(path, v);
+        val.textContent = v.toFixed(2);
+      });
+      valueEls[path] = val; inputEls[path] = input;
+    }
+    const PI = Math.PI;
+    const triple = (parent, group, range, step) => {
+      makeSlider(parent, `${group}.x`, -range, range, step, 'x');
+      makeSlider(parent, `${group}.y`, -range, range, step, 'y');
+      makeSlider(parent, `${group}.z`, -range, range, step, 'z');
+    };
+    triple(document.getElementById('ctrls-pos'), 'pos', 3, 0.1);
+    triple(document.getElementById('ctrls-rot'), 'rot', PI, 0.01);
+    makeSlider(document.getElementById('ctrls-scale'), 'scale.x', 0.1, 3, 0.05, 'x');
+    makeSlider(document.getElementById('ctrls-scale'), 'scale.y', 0.1, 3, 0.05, 'y');
+    makeSlider(document.getElementById('ctrls-scale'), 'scale.z', 0.1, 3, 0.05, 'z');
+    triple(document.getElementById('ctrls-cam'), 'cam', 10, 0.1);
+    makeSlider(document.getElementById('ctrls-fov'), 'fov', 10, 120, 1);
+    triple(document.getElementById('ctrls-lookat'), 'lookAt', 3, 0.1);
+
+    // ----- presets -----
+    const presets = [
+      { name: 'Default', state: defaults },
+      { name: 'Telephoto 15°', state: { ...defaults, fov: 15, cam: { x: 8, y: 4, z: 10 } } },
+      { name: 'Fisheye 110°', state: { ...defaults, fov: 110, cam: { x: 2, y: 2, z: 3 } } },
+      { name: 'Top-down', state: { ...defaults, cam: { x: 0, y: 6, z: 0.01 } } },
+      { name: 'From below', state: { ...defaults, cam: { x: 0, y: -4, z: 4 } } },
+      { name: 'Squashed', state: { ...defaults, scale: { x: 2, y: 0.3, z: 2 } } },
+    ];
+    const presetEl = document.getElementById('presets');
+    presets.forEach(p => {
+      const b = document.createElement('button');
+      b.textContent = p.name;
+      b.onclick = () => applyState(structuredClone(p.state));
+      presetEl.appendChild(b);
+    });
+    function applyState(next) {
+      Object.assign(state, structuredClone(next));
+      for (const path of Object.keys(inputEls)) {
+        const v = get(path);
+        inputEls[path].value = v;
+        valueEls[path].textContent = v.toFixed(2);
+      }
+    }
+    document.getElementById('reset-btn').onclick = () => applyState(defaults);
+
+    // ----- scene -----
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a12);
+
+    // Cube with colored faces
+    const cubeGeom = new THREE.BoxGeometry(1, 1, 1);
+    const mats = [
+      new THREE.MeshBasicMaterial({ color: 0xf04d63 }),
+      new THREE.MeshBasicMaterial({ color: 0x8a2837 }),
+      new THREE.MeshBasicMaterial({ color: 0x4dd17a }),
+      new THREE.MeshBasicMaterial({ color: 0x2a7448 }),
+      new THREE.MeshBasicMaterial({ color: 0x5b8aff }),
+      new THREE.MeshBasicMaterial({ color: 0x2e4d99 }),
+    ];
+    const cube = new THREE.Mesh(cubeGeom, mats);
+    scene.add(cube);
+    cube.add(new THREE.LineSegments(
+      new THREE.EdgesGeometry(cubeGeom),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 })
+    ));
+
+    // Axes + grid
+    const axes = new THREE.AxesHelper(3);
+    scene.add(axes);
+    scene.add(new THREE.GridHelper(10, 10, 0x2a2a3a, 0x1a1a25));
+
+    // Text sprite helper
+    function makeTextSprite(text, color = '#ffffff') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256; canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = color;
+      ctx.font = 'bold 72px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 128, 64);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.minFilter = THREE.LinearFilter;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+      sprite.scale.set(0.8, 0.4, 1);
+      return sprite;
+    }
+    const labelX = makeTextSprite('X', '#f04d63'); labelX.position.set(3.3, 0, 0); scene.add(labelX);
+    const labelY = makeTextSprite('Y', '#4dd17a'); labelY.position.set(0, 3.3, 0); scene.add(labelY);
+    const labelZ = makeTextSprite('Z', '#5b8aff'); labelZ.position.set(0, 0, 3.3); scene.add(labelZ);
+
+    // lookAt target marker + sight line
+    const target = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffd34d })
+    );
+    scene.add(target);
+
+    const sightGeom = new THREE.BufferGeometry();
+    sightGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+    const sightLine = new THREE.Line(
+      sightGeom,
+      new THREE.LineBasicMaterial({ color: 0xffd34d, transparent: true, opacity: 0.6 })
+    );
+    scene.add(sightLine);
+
+    // Camera-icon at camera position (visible only in scene view)
+    const camIcon = new THREE.Mesh(
+      new THREE.ConeGeometry(0.15, 0.3, 4),
+      new THREE.MeshBasicMaterial({ color: 0xffd34d })
+    );
+    scene.add(camIcon);
+
+    // ----- the camera under study -----
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 100);
+    const cameraHelper = new THREE.CameraHelper(camera);
+    scene.add(cameraHelper);
+
+    // ----- renderers -----
+    const mainView = document.getElementById('main-view');
+    const mainRenderer = new THREE.WebGLRenderer({ antialias: true });
+    mainRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    mainView.appendChild(mainRenderer.domElement);
+
+    const sceneView = document.getElementById('scene-view');
+    const sceneRenderer = new THREE.WebGLRenderer({ antialias: true });
+    sceneRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    sceneView.appendChild(sceneRenderer.domElement);
+
+    const orbitCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+    orbitCamera.position.set(9, 7, 11);
+    orbitCamera.lookAt(0, 0, 0);
+    const orbit = new OrbitControls(orbitCamera, sceneRenderer.domElement);
+    orbit.target.set(0, 0, 0);
+    orbit.enableDamping = true;
+
+    function resize() {
+      const m = mainView.getBoundingClientRect();
+      if (m.width > 0 && m.height > 0) {
+        mainRenderer.setSize(m.width, m.height, false);
+        camera.aspect = m.width / m.height;
+        camera.updateProjectionMatrix();
+      }
+      const s = sceneView.getBoundingClientRect();
+      if (s.width > 0 && s.height > 0) {
+        sceneRenderer.setSize(s.width, s.height, false);
+        orbitCamera.aspect = s.width / s.height;
+        orbitCamera.updateProjectionMatrix();
+      }
+    }
+    let resizeQueued = false;
+    function queueResize() {
+      if (resizeQueued) return;
+      resizeQueued = true;
+      requestAnimationFrame(() => { resizeQueued = false; resize(); });
+    }
+    window.addEventListener('resize', queueResize);
+    new ResizeObserver(queueResize).observe(mainView);
+    new ResizeObserver(queueResize).observe(sceneView);
+    resize();
+
+    // ----- render loop -----
+    const tmpPosArr = new Float32Array(6);
+    function tick() {
+      requestAnimationFrame(tick);
+
+      // Cube transform
+      cube.position.set(state.pos.x, state.pos.y, state.pos.z);
+      cube.rotation.set(state.rot.x, state.rot.y, state.rot.z);
+      cube.scale.set(state.scale.x, state.scale.y, state.scale.z);
+
+      // Camera transform
+      camera.position.set(state.cam.x, state.cam.y, state.cam.z);
+      camera.fov = state.fov;
+      camera.lookAt(state.lookAt.x, state.lookAt.y, state.lookAt.z);
+      camera.updateProjectionMatrix();
+      cameraHelper.update();
+
+      // Target marker + sight line
+      target.position.set(state.lookAt.x, state.lookAt.y, state.lookAt.z);
+      camIcon.position.set(state.cam.x, state.cam.y, state.cam.z);
+      camIcon.lookAt(state.lookAt.x, state.lookAt.y, state.lookAt.z);
+      camIcon.rotateX(Math.PI / 2);
+
+      const arr = sightLine.geometry.attributes.position.array;
+      arr[0] = state.cam.x; arr[1] = state.cam.y; arr[2] = state.cam.z;
+      arr[3] = state.lookAt.x; arr[4] = state.lookAt.y; arr[5] = state.lookAt.z;
+      sightLine.geometry.attributes.position.needsUpdate = true;
+
+      // View 1 — hide the camera's own visualisation
+      cameraHelper.visible = false;
+      target.visible = false;
+      sightLine.visible = false;
+      camIcon.visible = false;
+      mainRenderer.render(scene, camera);
+
+      // View 2 — show everything
+      cameraHelper.visible = true;
+      target.visible = true;
+      sightLine.visible = true;
+      camIcon.visible = true;
+      orbit.update();
+      sceneRenderer.render(scene, orbitCamera);
+    }
+    tick();
+    console.log('init complete');
+    } catch (e) { showErr('runtime', e); throw e; }
+  </script>
+</body>
+</html>
