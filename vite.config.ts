@@ -1,5 +1,7 @@
 import { defineConfig } from "vite";
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 export default defineConfig({
   base: "/",
   build: {
@@ -11,5 +13,5 @@ export default defineConfig({
     port: 5173,
     open: false,
   },
-  plugins: [],
+  plugins: [cloudflare()],
 });
