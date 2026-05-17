@@ -83,36 +83,72 @@
       flex-direction: column;
       min-height: 0;
     }
-    .legend {
+    .lesson {
       padding: 14px 16px;
       background: var(--panel-2);
       border-bottom: 1px solid var(--border);
-      font-size: 11.5px;
+      font-size: 12px;
       line-height: 1.55;
     }
-    .legend h3 {
+    .lesson-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .lesson-counter {
       font-size: 10px;
       letter-spacing: 1.6px;
-      color: var(--text-faint);
+      color: var(--accent);
       text-transform: uppercase;
-      margin-bottom: 8px;
       font-weight: 600;
     }
-    .legend-item {
+    .lesson h3 {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 8px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    .lesson-block {
+      margin: 8px 0;
+      padding: 8px 10px;
+      background: rgba(255,255,255,0.03);
+      border-left: 2px solid var(--accent);
+      border-radius: 0 4px 4px 0;
+      color: var(--text-dim);
+    }
+    .lesson-block b { color: var(--text); }
+    .lesson-block.watch { border-left-color: var(--yellow); }
+    .lesson-block .tag {
+      display: inline-block;
+      font-size: 9.5px;
+      letter-spacing: 1.4px;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+    .lesson-block.watch .tag { color: var(--yellow); }
+    .lesson-nav {
       display: grid;
-      grid-template-columns: 14px 1fr;
-      gap: 8px;
-      align-items: start;
-      margin: 4px 0;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 10px;
     }
-    .swatch {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-      margin-top: 3px;
+    .lesson-nav button { text-align: center; font-size: 11px; padding: 7px; }
+    .ctrl.highlight {
+      background: rgba(158, 175, 255, 0.12);
+      border-radius: 4px;
+      padding: 4px 6px;
+      margin: 3px -6px;
+      box-shadow: 0 0 0 1px var(--accent);
+      animation: pulse 1.6s ease-in-out infinite;
     }
-    .legend-item b { color: var(--text); }
-    .legend-item span { color: var(--text-dim); }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 1px var(--accent); }
+      50% { box-shadow: 0 0 0 3px rgba(158, 175, 255, 0.35); }
+    }
     .controls {
       padding: 14px 16px 24px;
       overflow-y: auto;
@@ -240,14 +276,23 @@
     </div>
 
     <div class="sidebar">
-      <div class="legend">
-        <h3>Legend — what you're looking at</h3>
-        <div class="legend-item"><span class="swatch" style="background:#5b8aff"></span><span><b>The cube</b> is your Object3D. It has a transform: position, rotation, scale. Faces are color-coded so you can see rotation.</span></div>
-        <div class="legend-item"><span class="swatch" style="background:#f04d63"></span><span><b>Red line</b> is the world <b>X</b> axis (right).</span></div>
-        <div class="legend-item"><span class="swatch" style="background:#4dd17a"></span><span><b>Green line</b> is the world <b>Y</b> axis (up).</span></div>
-        <div class="legend-item"><span class="swatch" style="background:#5b8aff"></span><span><b>Blue line</b> is the world <b>Z</b> axis (toward you).</span></div>
-        <div class="legend-item"><span class="swatch" style="background:#ffd34d"></span><span><b>Yellow pyramid</b> (view #2 only) = camera frustum. Anything inside this pyramid ends up in view #1.</span></div>
-        <div class="legend-item"><span class="swatch" style="background:#ffd34d;opacity:0.5"></span><span><b>Yellow dashed line</b> = sight line from camera to its lookAt target. The yellow dot is the target.</span></div>
+      <div class="lesson">
+        <div class="lesson-head">
+          <span class="lesson-counter" id="lesson-counter">Step 1 of 7</span>
+        </div>
+        <h3 id="lesson-title">…</h3>
+        <div class="lesson-block">
+          <span class="tag">Do this</span>
+          <div id="lesson-do">…</div>
+        </div>
+        <div class="lesson-block watch">
+          <span class="tag">Watch for</span>
+          <div id="lesson-watch">…</div>
+        </div>
+        <div class="lesson-nav">
+          <button id="lesson-prev">◂ Previous</button>
+          <button id="lesson-next">Next ▸</button>
+        </div>
       </div>
 
       <div class="controls">
@@ -334,6 +379,7 @@
     function makeSlider(parent, path, min, max, step, axis) {
       const div = document.createElement('div');
       div.className = 'ctrl';
+      div.dataset.path = path;
       const name = path.split('.').pop();
       const cls = axis ? `axis-${axis}` : '';
       div.innerHTML = `
@@ -391,6 +437,96 @@
       }
     }
     document.getElementById('reset-btn').onclick = () => applyState(defaults);
+
+    // ----- guided lesson -----
+    const lessons = [
+      {
+        title: 'Welcome — what are the two viewports?',
+        do: 'Don\'t touch a slider yet. Just look. <b>Drag inside View #2</b> with your mouse to orbit around the scene.',
+        watch: 'View #1 shows a cube. View #2 shows the same cube AND a yellow pyramid pointing at it. <b>That yellow pyramid IS the camera.</b> View #1 is what that camera sees; View #2 is you watching the camera from outside.',
+        state: defaults,
+        highlight: [],
+      },
+      {
+        title: 'Object position — move the cube',
+        do: 'Drag <code>pos.x</code> slowly from 0 up to about 2.',
+        watch: 'Cube slides along the <b style="color:#f04d63">red X axis</b>. The yellow pyramid (the camera) <b>doesn\'t move</b>. Only the cube did. <br><br><b>Lesson:</b> <code>cube.position</code> is the cube\'s location in the world. The camera doesn\'t care.',
+        state: defaults,
+        highlight: ['pos.x'],
+      },
+      {
+        title: 'Camera position — move the viewpoint',
+        do: 'Reset to defaults (or click the highlighted slider area). Then drag <code>cam.x</code> from 4 → 9.',
+        watch: 'In View #2 the <b style="color:#ffd34d">yellow pyramid slides outward</b>. The cube doesn\'t move. But in View #1 the cube shifts and shrinks — because <i>your viewpoint</i> moved.<br><br><b>Lesson:</b> changing camera position changes what you <i>see</i>, not what <i>exists</i>. This is the single most important camera idea.',
+        state: defaults,
+        highlight: ['cam.x'],
+      },
+      {
+        title: 'Rotation uses radians',
+        do: 'Drag <code>rot.y</code> slowly from 0 to about 3.14.',
+        watch: 'The cube spins around the green Y axis. The colored faces swap places. <code>3.14 ≈ π</code> is a half turn; <code>6.28 ≈ 2π</code> is a full turn.<br><br><b>Lesson:</b> Three.js uses radians, not degrees. <code>Math.PI / 2</code> is a quarter turn.',
+        state: defaults,
+        highlight: ['rot.y'],
+      },
+      {
+        title: 'camera.lookAt — aim the camera',
+        do: 'Drag <code>lookAt.y</code> from 0 to about 2.',
+        watch: 'In View #2: the yellow dot rises, the dashed line follows it, and the <b>whole yellow pyramid tilts upward</b>. In View #1: the cube falls toward the bottom of the frame — because the camera is now aimed at empty space above the cube.<br><br><b>Lesson:</b> <code>camera.lookAt(x, y, z)</code> rotates the camera so its forward direction points at that world coordinate.',
+        state: defaults,
+        highlight: ['lookAt.y'],
+      },
+      {
+        title: 'FOV — the 75 in PerspectiveCamera(75, ...)',
+        do: 'Drag <code>fov</code> from 75 down to about 15. Then drag it up to 110.',
+        watch: 'At <b>FOV 15</b> the yellow pyramid collapses into a narrow needle and the cube fills View #1 — same scene, but it looks like a telephoto lens. At <b>FOV 110</b> the pyramid opens wide and the cube looks small and distorted — like a fisheye lens.<br><br><b>Lesson:</b> FOV is the angular width of the lens. Nothing moved; only the lens changed.',
+        state: { ...defaults, cam: { x: 6, y: 3, z: 8 } },
+        highlight: ['fov'],
+      },
+      {
+        title: 'You have the vocabulary now',
+        do: 'Try the <b>Presets</b> below. Drag any slider. Combine moves — rotate the cube AND move the camera AND change FOV.',
+        watch: 'Every Object3D in Three.js works this way: <code>position</code>, <code>rotation</code>, <code>scale</code>. The camera is just an Object3D with one extra thing — a lens (FOV + aspect + near + far) that turns 3D into 2D.',
+        state: defaults,
+        highlight: [],
+      },
+    ];
+
+    let lessonIdx = 0;
+    const lessonCounter = document.getElementById('lesson-counter');
+    const lessonTitle   = document.getElementById('lesson-title');
+    const lessonDo      = document.getElementById('lesson-do');
+    const lessonWatch   = document.getElementById('lesson-watch');
+    const lessonPrev    = document.getElementById('lesson-prev');
+    const lessonNext    = document.getElementById('lesson-next');
+
+    function renderLesson() {
+      const L = lessons[lessonIdx];
+      lessonCounter.textContent = `Step ${lessonIdx + 1} of ${lessons.length}`;
+      lessonTitle.textContent = L.title;
+      lessonDo.innerHTML = L.do;
+      lessonWatch.innerHTML = L.watch;
+      lessonPrev.disabled = lessonIdx === 0;
+      lessonNext.disabled = lessonIdx === lessons.length - 1;
+      lessonPrev.style.opacity = lessonIdx === 0 ? 0.4 : 1;
+      lessonNext.style.opacity = lessonIdx === lessons.length - 1 ? 0.4 : 1;
+
+      applyState(L.state);
+
+      document.querySelectorAll('.ctrl.highlight').forEach(el => el.classList.remove('highlight'));
+      L.highlight.forEach(path => {
+        const el = document.querySelector(`.ctrl[data-path="${path}"]`);
+        if (el) el.classList.add('highlight');
+      });
+
+      // Scroll first highlighted slider into view
+      if (L.highlight.length) {
+        const el = document.querySelector(`.ctrl[data-path="${L.highlight[0]}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+    lessonPrev.onclick = () => { if (lessonIdx > 0) { lessonIdx--; renderLesson(); } };
+    lessonNext.onclick = () => { if (lessonIdx < lessons.length - 1) { lessonIdx++; renderLesson(); } };
+    renderLesson();
 
     // ----- scene -----
     const scene = new THREE.Scene();
